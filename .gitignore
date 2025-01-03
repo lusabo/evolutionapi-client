@@ -1,3 +1,7 @@
+# Temporary folder with audios.
+tmp/
+decoded/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

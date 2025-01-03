@@ -3,63 +3,48 @@ import tempfile
 import logging
 import requests
 from openai import OpenAI
+from ..utils.whatsapp_decoder import download_using_enc_link
 
 logger = logging.getLogger(__name__)
 llm_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-def transcrever_audio(url):
+def transcrever_audio(decoded_audio_path):
     try:
-        # Baixando o áudio da URL
-        response = requests.get(url, stream=True)
-
-        # Criando um arquivo temporário para salvar o áudio
-        with tempfile.NamedTemporaryFile(suffix=".m4a", delete=False) as temp_audio_file:
-            temp_audio_file.write(response.content)
-            temp_audio_path = temp_audio_file.name
-
-
-        # Lê o arquivo WAV convertido e envia para o Whisper
-        with open(temp_audio_path, "rb") as audio_file:
+        with open(decoded_audio_path, "rb") as audio_file:
             transcription = llm_client.audio.transcriptions.create(model="whisper-1", file=audio_file)
-        
-        # Retorna o texto transcrito
         return transcription.text
     except Exception as e:
         return f"Erro ao processar o áudio: {e}"
     finally:
-        if os.path.exists(temp_audio_path):
-            os.remove(temp_audio_path)
+        if os.path.exists(decoded_audio_path):
+            os.remove(decoded_audio_path)
     
 def process_message_upsert(data):
-    """
-    Processa os dados recebidos e aplica lógica dependendo se é texto ou áudio.
-    Se for áudio, o mesmo será transcrito pelo Whisper antes de ser processado.
-    """
     try:
-        # Identificar se é áudio ou texto com base no conteúdo
         message_type = data.get('data', {}).get('messageType')
 
         if message_type == 'audioMessage':
-            # Processar áudio
             logger.info("Mensagem do tipo áudio recebida.")
-            audio_url = data['data']['message']['audioMessage']['url']
+            audio_payload = {
+                'mediaKey': data['data']['message']['audioMessage']['mediaKey'],
+                'url': data['data']['message']['audioMessage']['url'],
+                'messageType': data['data']['messageType'],
+                'whatsappTypeMessageToDecode': 'WhatsApp Audio Keys',
+                'mimetype': data['data']['message']['audioMessage']['mimetype'],
+            }
 
-            # Transcrição usando Whisper            
-            transcription = transcrever_audio(audio_url)
+            decoded_audio_path = download_using_enc_link(audio_payload)
+            logger.info(f"Áudio descriptografado salvo em: {decoded_audio_path}")
 
+            transcription = transcrever_audio(decoded_audio_path)
             logger.info(f"Transcrição do áudio: {transcription}")
 
-            # Passar a transcrição para o primeiro guardrail
             result = transcription
         
         elif message_type == 'conversation':
-            # Processar texto
             logger.info("Mensagem do tipo texto recebida.")
             conversation_text = data['data']['message']['conversation']
-
-            # Passar o texto para o primeiro guardrail
             result = conversation_text
-        
         else:
             logger.warning(f"Tipo de mensagem não suportado: {message_type}")
             result = {"error": "Unsupported message type"}

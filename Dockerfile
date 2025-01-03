@@ -1,14 +1,22 @@
-# Usar uma imagem base do Python
-FROM python:3.9-slim
+# Base image com Python 3.12
+FROM python:3.12
 
-# Definir o diretório de trabalho no container
+# Diretório de trabalho dentro do contêiner
 WORKDIR /app
 
-# Copiar os arquivos necessários para o container
-COPY app.py /app/
+# Copiar arquivos necessários para o contêiner
+COPY app ./app
+COPY run.py ./
 
-# Instalar as dependências necessárias
-RUN pip install flask uv
+# Instalar as dependências diretamente
+RUN pip install --no-cache-dir \
+    flask>=3.1.0 \
+    openai>=1.58.1 \
+    python-dotenv>=1.0.1 \
+    requests>=2.32.3 \
+    whisper>=1.1.10 \
+    pycryptodome>=3.11.0 \
+    uv
 
-# Expor a porta 3000 para acessar a aplicação
+# Expôr a porta do Flask
 EXPOSE 3000
