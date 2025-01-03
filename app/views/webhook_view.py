@@ -1,19 +1,13 @@
-from flask import Blueprint, request, jsonify
-import logging
 import json
+import logging
+from flask import Blueprint, request, jsonify
+from ..controllers.message_upsert_controller import process_message_upsert
 
 # Configuração do logging
 logger = logging.getLogger(__name__)
 
 # Definindo o Blueprint
 webhook_bp = Blueprint("webhook", __name__, url_prefix="/evolutionapi-client/webhook")
-
-def process_message(data):
-    """
-    Função fictícia para processar mensagens recebidas.
-    """
-    logger.info("Processando mensagem: %s", data)
-    return {"status": "processed"}
 
 @webhook_bp.route('/health', methods=['GET'])
 def health_check():
@@ -60,7 +54,10 @@ def webhook_messages_upsert():
         
         logger.info(f"Webhook MESSAGES-UPSERT recebido: {json.dumps(data, indent=2)}")
 
-        return "Webhook MESSAGES-UPSERT", 200
+        # Chamando o controlador
+        audio_data = process_message_upsert(data)
+
+        return jsonify(audio_data), 200
 
     except Exception as e:
         logger.error(f"Erro ao processar webhook: {str(e)}")
